@@ -57,10 +57,16 @@ func New(config *Config, opts ...Opt) (*Server, error) {
 		return nil, fmt.Errorf("config: %w", err)
 	}
 
-	github, err := github.NewClient(config.GitHub.AppID, config.GitHub.AppPrivateKey)
-	if err != nil {
-		return nil, fmt.Errorf("creating github client: %w", err)
+	var ghClient *github.Client
+	if config.GitHub.Token != "" {
+		ghClient = github.NewTokenClient(config.GitHub.Token)
+	} else {
+		ghClient, err = github.NewClient(config.GitHub.AppID, config.GitHub.AppPrivateKey)
+		if err != nil {
+			return nil, fmt.Errorf("creating github client: %w", err)
+		}
 	}
+	github := ghClient
 
 	logger := zerolog.Nop()
 

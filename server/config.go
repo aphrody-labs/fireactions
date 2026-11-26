@@ -35,8 +35,10 @@ type MetricsConfig struct {
 }
 
 type GitHubConfig struct {
-	AppPrivateKey string `yaml:"app_private_key" validate:"required"`
-	AppID         int64  `yaml:"app_id" validate:"required"`
+	AppPrivateKey string `yaml:"app_private_key" validate:"required_without=Token"`
+	AppID         int64  `yaml:"app_id" validate:"required_without=Token"`
+	// Token (personal access or OAuth token with admin:org) used instead of a GitHub App.
+	Token string `yaml:"token" validate:"required_without_all=AppID AppPrivateKey"`
 }
 
 type RunnerConfig struct {

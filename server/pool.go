@@ -517,7 +517,7 @@ func (p *Pool) createMachine(ctx context.Context) error {
 	}
 
 	installationID := p.installationID.Load()
-	if installationID == 0 {
+	if installationID == 0 && p.github.IsApp() {
 		installation, _, err := p.github.Apps.FindOrganizationInstallation(ctx, p.config.Runner.Organization)
 		if err != nil {
 			return fmt.Errorf("github: %w", err)
@@ -724,7 +724,7 @@ func (p *Pool) deleteGitHubRunner(runnerName string, runnerID int64) {
 		return
 	}
 
-	if p.installationID.Load() == 0 {
+	if p.installationID.Load() == 0 && p.github.IsApp() {
 		p.logger.Warn().Msgf("No installation ID available, cannot delete runner %s", runnerName)
 		return
 	}

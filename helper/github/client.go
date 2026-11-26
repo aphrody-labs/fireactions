@@ -11,7 +11,8 @@ import (
 	"github.com/hashicorp/go-retryablehttp"
 )
 
-// Client is a wrapper around GitHub client that supports GitHub App authentication for multiple installations.
+// Client is a wrapper around GitHub client that supports GitHub App authentication for multiple installations,
+// or a single token (personal access or OAuth token with admin:org) used for every call.
 type Client struct {
 	*github.Client
 
@@ -20,9 +21,8 @@ type Client struct {
 	installations   map[int64]*github.Client
 }
 
-// NewClient creates a new Client.
-func NewClient(appID int64, appPrivateKey string) (*Client, error) {
-	baseTransport := &http.Transport{
+func newBaseTransport() *http.Transport {
+	return &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		DialContext: (&net.Dialer{
 			Timeout:   30 * time.Second,
@@ -35,8 +35,11 @@ func NewClient(appID int64, appPrivateKey string) (*Client, error) {
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
 	}
+}
 
-	transport, err := ghinstallation.NewAppsTransport(baseTransport, appID, []byte(appPrivateKey))
+// NewClient creates a new Client authenticated as a GitHub App.
+func NewClient(appID int64, appPrivateKey string) (*Client, error) {
+	transport, err := ghinstallation.NewAppsTransport(newBaseTransport(), appID, []byte(appPrivateKey))
 	if err != nil {
 		return nil, err
 	}
@@ -50,9 +53,25 @@ func NewClient(appID int64, appPrivateKey string) (*Client, error) {
 	return client, nil
 }
 
+// NewTokenClient creates a new Client authenticated with a token. Installation returns the same client.
+func NewTokenClient(token string) *Client {
+	return &Client{
+		Client:        github.NewClient(newRetryableHTTPClient(newBaseTransport())).WithAuthToken(token),
+		installations: make(map[int64]*github.Client),
+	}
+}
+
+// IsApp reports whether the client authenticates as a GitHub App (and so needs an installation ID).
+func (c *Client) IsApp() bool { return c.transport != nil }
+
 // Installation returns a cached GitHub client for the given installation ID.
 // The client is created on first use and reused for subsequent calls with the same installation ID.
+// With token authentication it returns the token client.
 func (c *Client) Installation(installationID int64) *github.Client {
+	if !c.IsApp() {
+		return c.Client
+	}
+
 	c.installationsMu.Lock()
 	defer c.installationsMu.Unlock()
 
